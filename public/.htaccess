@@ -1,0 +1,62 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # One official address: www.example.com → example.com
+    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+    RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+
+    # The test copy's folder lives inside the live folder: never serve it from the live address.
+    # (Checked against the full address, so it also applies inside that folder's own copy of this file.)
+    RewriteCond %{REQUEST_URI} ^/staging_html(/|$) [NC]
+    RewriteRule ^ - [F,L]
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
+
+# ---- Speed: let browsers cache files (Hostinger / LiteSpeed / Apache) ----
+<IfModule mod_headers.c>
+    # Files in /build have a unique fingerprint in their name, so they can be cached "forever".
+    <If "%{REQUEST_URI} =~ m#^/build/#">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </If>
+    # Images, icons and uploads: cache for a week.
+    <FilesMatch "\.(png|jpe?g|webp|avif|gif|svg|ico)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+</IfModule>
+
+# ---- Speed: compress text files ----
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/plain text/xml application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+# ---- Security: never serve hidden files such as .env or .git ----
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# ---- Security: don't announce the PHP version (also removed in SecurityHeaders.php) ----
+<IfModule mod_headers.c>
+    Header always unset X-Powered-By
+    Header unset X-Powered-By
+</IfModule>
